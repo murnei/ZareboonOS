@@ -1,0 +1,10 @@
+# Compiled files
+*.o
+*.bin
+*.elf
+*.img
+
+# Temporary/Backup files
+*.tmp
+*.log
+*.bak
