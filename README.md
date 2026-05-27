@@ -15,7 +15,7 @@ ZareboonOS is a minimalist, bare-metal operating system written from scratch in 
 - `build/` — Linker scripts and automation tools.
 
 ## Requirements & Building
-To compile and test the OS image, you need `clang`, `nasm`, `ld`, and `qemu-system-x86_64` installed in your Termux environment.
+To compile and test the OS image, you need `clang`, `nasm`, `ld`, and `qemu-system-x86_64` installed in your environment.
 
 To build and run:
 ```bash
