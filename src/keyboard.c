@@ -41,10 +41,6 @@ void keyboard_handler_main() {
 
     if (scancode == 0xE0) {
         is_extended = 1;
-	if (cursor_x - 1 != '\0') {
-	    cursor_x--;
-	    update_cursor();
-	}
         return;
     }
 
