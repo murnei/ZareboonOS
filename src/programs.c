@@ -3,6 +3,8 @@
 #include "idt.h"
 #include "disk.h"
 #include "shell.h"
+#include "cursor.h"
+#include "video.h"
 
 extern void* syscall_table[];
 
@@ -68,7 +70,7 @@ void text_editor(const char* filename, uint32_t lba, uint8_t* root_buffer, int r
 
         cursor_x = cx;
         cursor_y = cy;
-        update_cursor(cursor_x, cursor_y);
+        update_cursor();
 
         char c = get_char();
 

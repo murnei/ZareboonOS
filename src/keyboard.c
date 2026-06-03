@@ -1,5 +1,6 @@
 #include "stdio.h"
 #include "system.h"
+#include "cursor.h"
 
 volatile char last_key_pressed = 0;
 int shift_pressed = 0;
@@ -40,6 +41,10 @@ void keyboard_handler_main() {
 
     if (scancode == 0xE0) {
         is_extended = 1;
+	if (cursor_x - 1 != '\0') {
+	    cursor_x--;
+	    update_cursor();
+	}
         return;
     }
 

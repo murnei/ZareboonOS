@@ -3,6 +3,8 @@
 #include "disk.h"
 #include "programs.h"
 #include "keyboard.h"
+#include "cursor.h"
+#include "video.h"
 
 void format_fat_name(const char* input, char* output);
 
@@ -373,8 +375,8 @@ void read_line(char* buffer, int max_len) {
                 } else if (cursor_x > 0) {
                     cursor_x--;
                 }
-                put_char(cursor_x, cursor_y, ' ', 0x0F);
-                update_cursor(cursor_x, cursor_y);
+                put_char(cursor_x, cursor_y, '\0', 0x0F);
+                update_cursor();
             }
         }
         else if (c == 1 || c == 2) {
@@ -407,7 +409,7 @@ void read_line(char* buffer, int max_len) {
                 print(str);
                 i++;
             }
-            update_cursor(cursor_x, cursor_y);
+            update_cursor();
         }
         else if (index < max_len - 1 && c >= 32 && c <= 126) {
             buffer[index++] = c;

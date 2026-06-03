@@ -3,12 +3,13 @@
 #include "idt.h"
 #include "system.h"
 #include "shell.h"
+#include "video.h"
 
 __attribute__((section(".syscalls")))
 void* syscall_table[] = {
-    (void*)print,       // Индекс 0
-    (void*)clear,       // Индекс 1
-    (void*)get_char,    // Индекс 2
+    (void*)print,
+    (void*)clear,
+    (void*)get_char,
     (void*)put_char,
     (void*)sleep,
     (void*)print_int,
