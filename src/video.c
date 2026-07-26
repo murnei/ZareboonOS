@@ -15,10 +15,9 @@ void put_char(int x, int y, char c, int color) {
 void clear() {
     for (int y = 0; y < 25; y++) {
         for (int x = 0; x < 80; x++) {
-            put_char(x, y, ' ', 0x00);
+            put_char(x, y, '\0', 0x00);
         }
     }
 
-    cursor_x = 0;
-    cursor_y = 0;
+    set_cursor(0, 0);
 }

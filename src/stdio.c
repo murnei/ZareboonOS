@@ -33,24 +33,21 @@ void print(const char* s) {
 
     for (int i = 0; i < len; i++) {
         if (s[i] == '\n') {
-            cursor_x = 0;
-            cursor_y++;
+	    new_line();
         } else if (s[i] == '\01') {
             inputed_color = 0x0F;
             continue;
         } else {
-            put_char(cursor_x, cursor_y, s[i], inputed_color);
-            cursor_x++;
+            put_char(get_cursor_x(), get_cursor_y(), s[i], inputed_color);
+	    move_cursor(1, 0);
         }
 
-        if (cursor_x >= 80) {
-            cursor_x = 0;
-            cursor_y++;
+        if (get_cursor_x() >= 80) {
+	    new_line();
         }
-
-        scroll();
-        update_cursor();
     }
+
+    update_cursor();
 }
 
 void print_int(int n) {
@@ -67,8 +64,7 @@ void print_int(int n) {
 
 void draw_name_os() {
    clear();
-   cursor_y = 0;
-   cursor_x = 25;
+   move_cursor(25, 0);
    print("*** ZAREBOON OS ***\n");
 }
 

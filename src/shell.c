@@ -193,6 +193,37 @@ void cmd_run(char* arg) {
     }
 }
 
+void cmd_delete(char* arg) {
+    if (!arg || *arg == '\0') {
+        print("\nUsage: no such file or directory");
+	return;
+    }
+
+    char fat_name[11];
+    format_fat_name(arg, fat_name);
+
+    uint8_t root[512];
+    read_sector(19, root);
+
+    int off = -1;
+    for (int e = 0; e < 16; e++) {
+        char m = 1;
+        for (int k = 0; k < 11; k++)
+            if (root[e * 32 + k] != fat_name[k]) m = 0;
+        if (m) { off = e * 32; break; }
+    }
+
+    if (off == -1) {
+        print("Usage: no such file or directory");
+    } 
+
+}
+
+void cmd_read() {
+    uint8_t root[512];
+    read_sector(0, root);
+}
+
 void cmd_edit(char* arg) {
     if (!arg || *arg == '\0') {
         print("\nUsage: edit <filename>");
@@ -324,6 +355,8 @@ void command_manager(char* cmd) {
         cmd_help();
     } else if (strcmp(cmd, "clear") == 0) {
         cmd_clear();
+    } else if (strcmp(cmd, "read") == 0) {
+	cmd_read();
     } else if (strcmp(cmd, "echo") == 0) {
         cmd_echo(arg);
     } else if (strcmp(cmd, "time") == 0) {
@@ -343,7 +376,7 @@ void command_manager(char* cmd) {
     } else if (strcmp(cmd, "reboot") == 0) {
         reboot();
     } else if (cmd[0] != '\0') {
-        print("\nUnknown command.");
+        print("\nUnknown command");
     }
 }
 
@@ -369,13 +402,12 @@ void read_line(char* buffer, int max_len) {
         else if (c == '\b') {
             if (index > 0) {
                 index--;
-                if (cursor_x == 0 && cursor_y > 0) {
-                    cursor_x = 79;
-                    cursor_y--;
-                } else if (cursor_x > 0) {
-                    cursor_x--;
+                if (get_cursor_x() == 0 && get_cursor_y() > 0) {
+                    move_cursor(75, -1);
+                } else if (get_cursor_x() > 0) {
+                    move_cursor(-1, 0);
                 }
-                put_char(cursor_x, cursor_y, '\0', 0x0F);
+                put_char(get_cursor_x(), get_cursor_y(), '\0', 0x0F);
                 update_cursor();
             }
         }
@@ -396,9 +428,11 @@ void read_line(char* buffer, int max_len) {
 
             while (index > 0) {
                 index--;
-                if (cursor_x == 0 && cursor_y > 0) { cursor_x = 79; cursor_y--; }
-                else if (cursor_x > 0) cursor_x--;
-                put_char(cursor_x, cursor_y, ' ', 0x0F);
+                if (get_cursor_x() == 0 && get_cursor_y() > 0) { 
+		    set_cursor(79, get_cursor_y() - 1);
+		}
+                else if (get_cursor_x() > 0) move_cursor(get_cursor_x() - 1, 0);
+                put_char(get_cursor_x(), get_cursor_y(), ' ', 0x0F);
             }
 
             char* source = (history_index == -1) ? saved_input : history[history_index];

@@ -52,25 +52,25 @@ void text_editor(const char* filename, uint32_t lba, uint8_t* root_buffer, int r
         print(filename);
         print(" --- [ESC: Save & Exit]\n\n");
 
-        int cx = cursor_x;
-        int cy = cursor_y;
+        int cx = get_cursor_x();
+	int cy = get_cursor_y();
 
-        for (int i = 0; i < len; i++) {
-            if (i == pos) {
-                cx = cursor_x;
-                cy = cursor_y;
-            }
-            char s[2] = {buffer[i], '\0'};
-            print(s);
-        }
-        if (pos == len) {
-            cx = cursor_x;
-            cy = cursor_y;
-        }
+	for (int i = 0; i < len; i++) {
+	    if (i == pos) {
+		cx = get_cursor_x();
+		cy = get_cursor_y();
+	    }
 
-        cursor_x = cx;
-        cursor_y = cy;
-        update_cursor();
+	    char s[2] = { buffer[i], '\0' };
+	    print(s);
+	}
+
+	if (pos == len) {
+	    cx = get_cursor_x();
+	    cy = get_cursor_y();
+	}
+
+	set_cursor(cx, cy);  
 
         char c = get_char();
 

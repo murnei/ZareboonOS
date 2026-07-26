@@ -8,7 +8,7 @@ start:
     mov es, ax
     mov sp, 0x8000
 
-    mov [boot_drive], dl   ; сохраняем номер диска, с которого загрузились
+    mov [boot_drive], dl
 
     mov si, msg_boot
     call print16
