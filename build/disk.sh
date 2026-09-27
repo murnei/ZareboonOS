@@ -1,46 +1,67 @@
-#!/usr/bin/env bash
+#!/bin/bash
+set -e
 
-clear
+DISK_NAME="fat_area.img"
+CHOICE=
+SRC="zrn"
+INC="../inc"
+CFLAGS="-target i386-pc-none-elf -march=i386 -ffreestanding -fno-pie -fno-stack-protector -nostdlib -nostdinc -O2 -I$INC"
 
-echo "1 - удалить файл с диска"
-echo "2 - очистить диск полностью (FAT12)"
-echo "3 - скопировать файл на диск"
-echo "4 - скомпилировать скрипт и закинуть на диск"
-echo ""
 
-read -p "Введите ответ: " answer
+while true; do
+    clear
+    echo "=============================="
+    echo "    ####   ###  ###  #   #    "
+    echo "    #   #   #   #    # #      "
+    echo "    #   #   #   ###  # #      "
+    echo "    #   #   #     #  #  #     "
+    echo "    ####   ###  ###  #   #    "
+    echo "=============================="
 
-if [ "$answer" -eq 1 ]; then
-    echo "Содержимое диска:"
-    mdir -i test-disk.img ::
+    echo "0 - exit"
+    echo "1 - create/recreate disk in fat32"
+    echo "2 - copy file on disk"
+    echo "3 - compile and copy on disk"
+    echo "4 - delete files from disk"
 
-    read -p "Какой файл хотите удалить? " file_input
-    file_name=$(echo "$file_input" | tr '[:lower:]' '[:upper:]' | xargs)
+    read -p "your choice: " CHOICE
 
-    echo "Удаляю: $file_name..."
-    mdel -i test-disk.img ::"$file_name"
+    case $CHOICE in
+        0)
+            clear
+            break
+            ;;
+        1)
+            rm $DISK_NAME
 
-elif [ "$answer" -eq 2 ]; then
-    rm -f test-disk.img
-    dd if=/dev/zero of=test-disk.img bs=1k count=1440 2>/dev/null
-    mformat -i test-disk.img -f 1440 ::
-    echo "Диск пересоздан."
+            dd if=/dev/zero of="$DISK_NAME" bs=4096 count=25600
+            mkfs.vfat -F 32 -n "DUD_DATA" "$DISK_NAME"
+            ;;
+        2)
+            read -p "enter file name: " CHOICE
+		    CLEAN_NAME=$(basename "$CHOICE")
 
-elif [ "$answer" -eq 3 ]; then
-    read -p "Введите название файла (с расширением): " file_name
-    mcopy -i test-disk.img "$file_name" ::"$file_name"
-    echo "Файл $file_name скопирован."
+			mcopy -o -D o -i "$DISK_NAME" "$CHOICE" "::$CLEAN_NAME"
+			;;
+        3)
+            read -p "enter file name without extension: " CHOICE
+            clang $CFLAGS -c "$SRC/$CHOICE.c" -o "$SRC/$CHOICE.zrn"
+            
+            ld -m elf_i386 -T zrn/zrn.ld --oformat binary "$SRC/$CHOICE.zrn" -o $SRC/$CHOICE
 
-elif [ "$answer" -eq 4 ]; then
-    read -p "Введите название файла без расширения: " file_name
-    
-    if nasm -f bin "$file_name".asm -o "$file_name".zrn; then
-        remote_name=$(echo "$file_name.zrn" | tr '[:lower:]' '[:upper:]')
-        
-        mcopy -o -i test-disk.img "$file_name".zrn ::"$remote_name"
-        echo "Файл $remote_name успешно скомпилирован и скопирован."
-    else
-        echo "Ошибка компиляции!"
-    fi
-fi
+            mcopy -o -D o -i "$DISK_NAME" "$SRC/$CHOICE" "::$CHOICE.zrn"
+            ;;
+        4)
+            mdir -i "$DISK_NAME" ::*
+            echo ""
+            read -p "enter file name: " CHOICE
+            mdel -i "$DISK_NAME" "::$CHOICE"
+            ;;
+        *)
+            echo "Usage: no choice found"
+            sleep 1
+            ;;
+      esac
 
+      clear
+done

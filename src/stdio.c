@@ -1,79 +1,114 @@
-#include "cursor.h"
+#include "stdint.h"
+#include "stdarg.h"
+#include "stdbool.h"
+
+#include "console.h"
 #include "video.h"
 
-extern void outb(unsigned short port, unsigned char data);
-
-void itoa(int n, char* s, int b) {
-    static char digits[] = "0123456789ABCDEF";
+uint16_t strlen(const char* c) {
     int i = 0;
-    int sign = n;
-    if (n < 0) n = -n;
-    do {
-        s[i++] = digits[n % b];
-    } while ((n /= b) > 0);
-    if (sign < 0) s[i++] = '-';
-    s[i] = '\0';
-    
-    for (int j = 0, k = i - 1; j < k; j++, k--) {
-        char t = s[j]; s[j] = s[k]; s[k] = t;
+
+    while(c[i] != '\0') {
+        i++;
     }
+
+    return i;
 }
 
-int strlen(const char* s) {
-    int length = 0;
-    while (s[length] != '\0') {
-        length++;
+void print_str(const char* s, uint32_t color) {
+    if (!s) s = "(null)";
+    while (*s) print_char((uint8_t)*s++, color);
+}
+
+static void print_number(int value, int base, bool is_signed, int uppercase, uint32_t color) {
+    char buf[32];
+    const char* digits = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
+    int i = 0;
+    int negative = 0;
+
+    uint32_t uval;
+    if (is_signed && value < 0) {
+        negative = 1;
+        uval = (uint32_t)(-value);
+    } else {
+        uval = (uint32_t)value;
     }
-    return length;
-}	
 
-void print(const char* s) {
-    int len = strlen(s);
-    int inputed_color = 0x0F;
+    if (uval == 0) {
+        buf[i++] = '0';
+    } else {
+        while (uval > 0) {
+            buf[i++] = digits[uval % base];
+            uval /= base;
+        }
+    }
 
-    for (int i = 0; i < len; i++) {
-        if (s[i] == '\n') {
-	    new_line();
-        } else if (s[i] == '\01') {
-            inputed_color = 0x0F;
+    if (negative) print_char('-', color);
+    while (i > 0) print_char(buf[--i], color);
+}
+
+void print(const char* c, ...) {
+    va_list args;
+    va_start(args, c);
+
+    uint32_t color = rgb(255, 255, 255);
+
+    uint16_t len = strlen(c);
+
+    for (uint16_t i = 0; i < len; i++) {
+	    if (c[i] == '\n') {
+            new_line();
+	        continue;
+	    }
+
+        if (c[i] == '%') {
+            i++;
+
+            switch (c[i]) {
+                case 's': {
+                    const char* s = va_arg(args, const char*);
+                    print_str(s, color);
+                    break;
+                }
+                case 'c': {
+                    const uint8_t s = va_arg(args, const uint8_t);
+                    print_char(s, color);
+                    break;
+                }
+                case 'C': {
+                    color = va_arg(args, uint32_t);
+                    break;
+                }
+                case 'd': {
+                    int val = va_arg(args, int);
+                    print_number(val, 10, false, 0, color);
+                    break;
+                }
+                case '%': {
+                    print_char('%', color);
+                    break;
+                }
+                default: {
+                    print_char('%', color);
+                    print_char(c[i], color);
+                    break;
+                }
+            }
             continue;
-        } else {
-            put_char(get_cursor_x(), get_cursor_y(), s[i], inputed_color);
-	    move_cursor(1, 0);
         }
-
-        if (get_cursor_x() >= 80) {
-	    new_line();
-        }
+        print_char(c[i], color);
     }
-
-    update_cursor();
 }
 
-void print_int(int n) {
-    if (n == 0) {
-        print("00");
-        return;
-    }
-    if (n < 10) print("0");
-    
-    char buf[12];
-    itoa(n, buf, 10);
-    print(buf);
-}
-
-void draw_name_os() {
-   clear();
-   move_cursor(25, 0);
-   print("*** ZAREBOON OS ***\n");
-}
-
-void draw_os_logo() {
-    print("  ______                          _                        \n");
-    print(" |___  /                         | |                       \n");
-    print("    / / __ _ _ __ ___  ___   ___ | |__   ___   ___  _ __   \n");
-    print("   / / / _` | '__/ _ \\/ _ \\ / _ \\| '_ \\ / _ \\ / _ \\| '_ \\  \n");
-    print("  / /_| (_| | | |  __/ (_) | (_) | |_) | (_) | (_) | | | | \n");
-    print(" /_____\\__,_|_|  \\___|\\___/ \\___/|_.__/ \\___/ \\___/|_| |_| by murnei\n");
-    print("\n              --- ZAREBOON OS v1.0 ---\n");
+void draw_os_logo(void) {
+    print("====================================================\n");
+    print("  #####    ###   #####   #####  #####   ###   ###   #   # \n");
+    print("     #    #   #  #    #  #      #    # #   # #   #  ##  # \n");
+    print("    #     #####  #####   #####  #####  #   # #   #  # # # \n");
+    print("   #      #   #  #   #   #      #    # #   # #   #  #  ## \n");
+    print("  #####   #   #  #    #  #####  #####   ###   ###   #   # \n");
+    print("====================================================\n");
+    print("               --- ZAREBOON OS v1.0 ---             \n");
+    print("                      by murnei                     \n");
+    print("\n");
 }

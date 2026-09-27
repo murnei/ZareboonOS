@@ -1,32 +1,51 @@
-struct idt_entry {
-    unsigned short base_low;
-    unsigned short sel;
-    unsigned char always0;
-    unsigned char flags;
-    unsigned short base_high;
+#include "stdint.h"
+#include "io.h"
+
+struct idt_ptr_struct {
+    uint16_t limit;
+    uint32_t base;
 } __attribute__((packed));
 
-struct idt_ptr {
-    unsigned short limit;
-    unsigned int base;
-} __attribute__((packed));
+struct idt_ptr_struct idt_ptr;
+extern void timer_isr_stub();
 
-struct idt_entry idt[256];
-struct idt_ptr idtp;
+__attribute__((aligned(16))) uint8_t my_idt_table[256 * 8];
 
-void outb(unsigned short port, unsigned char data) {
-    __asm__ volatile("outb %0, %1" : : "a"(data), "Nd"(port));
+void init_timer(uint32_t frequincy) {
+    if (frequincy <= 0) return;
+    uint32_t divisor = 1193182 / frequincy;
+
+    outb(0x43, 0x36);
+    outb(0x40, (uint8_t)(divisor & 0xFF));
+    outb(0x40, (uint8_t)((divisor >> 8) & 0xFF));
 }
 
-extern void idt_load();
+void set_idt_gate(uint8_t vector, uint32_t handler_address) {
+    uint32_t offset = vector * 8;
+    uint16_t low  = (uint16_t)(handler_address & 0xFFFF);
+    uint16_t high = (uint16_t)((handler_address >> 16) & 0xFFFF);
 
-void idt_set_gate(unsigned char num, unsigned long base, unsigned short sel, unsigned char flags) {
-    idt[num].base_low = (base & 0xFFFF);
-    idt[num].base_high = (base >> 16) & 0xFFFF;
-    idt[num].sel = sel;
-    idt[num].always0 = 0;
-    idt[num].flags = flags;
+    *(uint16_t*)&my_idt_table[offset + 0] = low;
+    *(uint16_t*)&my_idt_table[offset + 2] = 0x0008;
+    *(uint8_t*)&my_idt_table[offset + 4]  = 0x00;
+    *(uint8_t*)&my_idt_table[offset + 5]  = 0x8E;
+    *(uint16_t*)&my_idt_table[offset + 6] = high;
 }
+
+void set_idt_gate_user(uint8_t vector, uint32_t handler_address) {
+    uint32_t offset = vector * 8;
+    uint16_t low  = (uint16_t)(handler_address & 0xFFFF);
+    uint16_t high = (uint16_t)((handler_address >> 16) & 0xFFFF);
+
+    *(uint16_t*)&my_idt_table[offset + 0] = low;
+    *(uint16_t*)&my_idt_table[offset + 2] = 0x0008;
+    *(uint8_t*)&my_idt_table[offset + 4]  = 0x00;
+    *(uint8_t*)&my_idt_table[offset + 5]  = 0xEE;
+    *(uint16_t*)&my_idt_table[offset + 6] = high;
+}
+
+extern void* isr_stub_table[];
+extern void keyboard_isr_stub();
 
 void pic_remap() {
     outb(0x20, 0x11);
@@ -37,28 +56,33 @@ void pic_remap() {
     outb(0xA1, 0x02);
     outb(0x21, 0x01);
     outb(0xA1, 0x01);
-    outb(0x21, 0xFD);
-    outb(0xA1, 0xFF);
-    outb(0x21, 0xFC);                                 
+    outb(0x21, 0xFC);
     outb(0xA1, 0xFF);
 }
 
-void idt_install() {
-    extern void irq0_handler();
-    extern void irq1_handler();
-    extern void syscall_handler_asm();
-    
-    idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
-    idtp.base = (unsigned int)&idt;
+void init_idt() {
+    idt_ptr.limit = (256 * 8) - 1;
+    idt_ptr.base  = (uint32_t)&my_idt_table;
 
-    for(int i = 0; i < 256; i++) idt_set_gate(i, 0, 0, 0);
+    for (int i = 0; i < 256; i++) {
+        *(uint64_t*)&my_idt_table[i * 8] = 0;
+    }
 
-    idt_set_gate(32, (unsigned long)irq0_handler, 0x08, 0x8E);
-    idt_set_gate(33, (unsigned long)irq1_handler, 0x08, 0x8E);
-    idt_set_gate(0x80, (unsigned long)syscall_handler_asm, 0x08, 0x8F);
+    for (int i = 0; i < 32; i++) {
+        set_idt_gate(i, (uint32_t)isr_stub_table[i]);
+    }
     
+    set_idt_gate(32, (uint32_t)timer_isr_stub);
+    set_idt_gate(33, (uint32_t)keyboard_isr_stub);
+
     pic_remap();
-    idt_load();
 
+    init_timer(100);
+
+    __asm__ volatile("lidt %0" : : "m"(idt_ptr));
     __asm__ volatile("sti");
+}
+
+void isr_handler_c() {
+    while(1);
 }

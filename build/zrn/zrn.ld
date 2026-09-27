@@ -1,16 +1,16 @@
-ENTRY(_start)
+ENTRY(main)
 
 SECTIONS {
-    . = 0x1000;
-    .text : {
-        *(.text.entry)
-        *(.text*)
-    }
-    .syscalls : {
-        *(.syscalls)
+    . = 0x60000;
+
+    .zrn_header : {
+        *(.zrn_header)
     }
 
-    .rodata : { *(.rodata*) }
+    .text : {
+        *(.text*)
+    }
+	.rodata : { *(.rodata*) }
     .data   : { *(.data*)   }
     .bss    : { *(.bss*) *(COMMON) }
 

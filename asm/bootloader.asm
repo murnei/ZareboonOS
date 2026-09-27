@@ -1,52 +1,42 @@
 [org 0x7C00]
 
 start:
-    mov [boot_drive], dl 
+   xor ax, ax
+   mov es, ax
+   mov ds, ax
 
-    xor ax, ax
-    mov ds, ax
-    mov es, ax
-    mov ss, ax
-    mov sp, 0x7C00
+   mov si, [bot]
 
-    mov si, message
-print_loop:
-    lodsb
-    or al, al
-    jz wait_key
-    mov ah, 0x0E
-    int 0x10
-    jmp print_loop
+   mov bx, 0x8000
+   mov ah, 02h
+   mov al, 10
+   mov ch, 0
+   mov cl, 2
+   mov dh, 0
+   int 0x13
+   jc disk_fail
 
-wait_key:
-    xor ah, ah
-    int 0x16
+   jmp 0x8000
 
-load_kernel:
-    xor ax, ax
-    mov es, ax
-    mov bx, 0x8000
+disk_fail:
+   mov si, disk_error
+   call print
+   hlt
 
-    mov ah, 0x02
-    mov al, 0x40
-    mov ch, 0x00
-    mov dh, 0x00
-    mov cl, 0x02 
-    mov dl, [boot_drive]
+print:
+   mov ah, 0x0E
+   mov al, [si]
+   cmp al, 0
+   jz return
+   int 0x10
+   inc si
+   jmp print
 
-    int 0x13
-    jc disk_error
+return:
+   ret
 
-    jmp 0x0000:0x8000
-
-disk_error:
-    mov al, 'E'
-    mov ah, 0x0E
-    int 0x10
-    jmp $
-
-boot_drive: db 0
-message: db 'press any key...', 0
+disk_error: db "Disk read failed", 0
+bot: db "Bootloader", 0
 
 times 510-($-$$) db 0
 dw 0xAA55

@@ -1,73 +1,115 @@
-#include "stdio.h"
-#include "system.h"
-#include "cursor.h"
+#include "keyboard.h"
+#include "stdint.h"
+#include "stdbool.h"
+#include "io.h"
 
-volatile char last_key_pressed = 0;
-int shift_pressed = 0;
-int is_extended = 0;
+#define KEYBOARD_BUFFER_SIZE 256
 
-unsigned char keyboard_map[128] = {
-    0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
-  '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
-    0, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',   0,
- '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/',   0, '*',   0, ' ', 0
+static char key_buffer[KEYBOARD_BUFFER_SIZE];
+static uint16_t buf_head = 0;
+static uint16_t buf_tail = 0;
+
+static bool shift_pressed = false;
+static bool caps_lock = false;
+
+static const char ascii[128] = {
+    0,    27,  '1', '2', '3', '4', '5', '6', '7', '8',
+    '9',  '0', '-', '=', '\b','\t','q', 'w', 'e', 'r',
+    't',  'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,
+    'a',  's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';',
+    '\'', '`', 0,  '\\','z', 'x', 'c', 'v', 'b', 'n',
+    'm',  ',', '.', '/', 0,   '*', 0,   ' ', 0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,
 };
 
-unsigned char keyboard_map_shift[128] = {
-    0,  27, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
-  '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',
-    0, 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~',   0,
-  '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?',   0, '*',   0, ' ', 0
+static const char ascii_shift[128] = {
+    0,    27,  '!', '@', '#', '$', '%', '^', '&', '*',
+    '(',  ')', '_', '+', '\b','\t','Q', 'W', 'E', 'R',
+    'T',  'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0,
+    'A',  'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':',
+    '"',  '~', 0,  '|', 'Z', 'X', 'C', 'V', 'B', 'N',
+    'M',  '<', '>', '?', 0,   '*', 0,   ' ', 0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,   0,   0,
+    0,    0,   0,   0,   0,   0,   0,   0,
 };
 
-unsigned char inb(unsigned short port) {
-    unsigned char result;
-    __asm__ volatile("inb %1, %0" : "=a"(result) : "Nd"(port));
-    return result;
+#define SC_LEFT_SHIFT   0x2A
+#define SC_RIGHT_SHIFT  0x36
+#define SC_CAPS_LOCK    0x3A
+#define SC_RELEASE_MASK 0x80
+
+static void buffer_push(char c) {
+    uint16_t next = (buf_head + 1) % KEYBOARD_BUFFER_SIZE;
+    if (next != buf_tail) {
+        key_buffer[buf_head] = c;
+        buf_head = next;
+    }
 }
 
-char get_char() {
-    while (last_key_pressed == 0) {
-        __asm__ volatile("sti; hlt");
+char scancode_to_ascii(uint8_t scancode) {
+    bool use_shift = shift_pressed;
+    char base = ascii[scancode];
+    bool is_letter = (base >= 'a' && base <= 'z');
+
+    if (is_letter && caps_lock) {
+        use_shift = !use_shift;
     }
-    char c = last_key_pressed;
-    last_key_pressed = 0;
+
+    return use_shift ? ascii_shift[scancode] : ascii[scancode];
+}
+
+void keyboard_handler_c() {
+    uint8_t scancode = inb(0x60);
+
+    bool released = (scancode & SC_RELEASE_MASK) != 0;
+    uint8_t code = scancode & ~SC_RELEASE_MASK;
+
+    switch (code) {
+        case SC_LEFT_SHIFT:
+        case SC_RIGHT_SHIFT:
+            shift_pressed = !released;
+            goto eoi;
+
+        case SC_CAPS_LOCK:
+            if (!released) {
+                caps_lock = !caps_lock;
+            }
+            goto eoi;
+
+        default:
+            break;
+    }
+
+    if (!released && code < 128) {
+        char c = scancode_to_ascii(code);
+        if (c != 0) {
+            buffer_push(c);
+        }
+    }
+
+eoi:
+    outb(0x20, 0x20);
+}
+
+bool keyboard_has_input() {
+    return buf_head != buf_tail;
+}
+
+char keyboard_read_char() {
+    if (buf_head == buf_tail) {
+        return 0;
+    }
+
+    char c = key_buffer[buf_tail];
+    buf_tail = (buf_tail + 1) % KEYBOARD_BUFFER_SIZE;
     return c;
-}
-
-void keyboard_handler_main() {
-    unsigned char scancode = inb(0x60);
-    __asm__ volatile("outb %%al, %%dx" : : "a"(0x20), "d"(0x20));
-
-    if (scancode == 0xE0) {
-        is_extended = 1;
-        return;
-    }
-
-    if (is_extended) {
-        is_extended = 0;
-        if (!(scancode & 0x80)) {
-            if (scancode == 0x48) last_key_pressed = 1;
-            if (scancode == 0x50) last_key_pressed = 2;
-            if (scancode == 0x4B) last_key_pressed = 3;
-            if (scancode == 0x4D) last_key_pressed = 4;
-        }
-        return;
-    }
-
-    if (scancode == 0x2A || scancode == 0x36) {
-        shift_pressed = 1;
-        return;
-    }
-    if (scancode == 0xAA || scancode == 0xB6) {
-        shift_pressed = 0;
-        return;
-    }
-
-    if (!(scancode & 0x80)) {
-        char letter = shift_pressed ? keyboard_map_shift[scancode] : keyboard_map[scancode];
-        if (letter != 0) {
-            last_key_pressed = letter;
-        }
-    }
 }

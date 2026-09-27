@@ -1,85 +1,36 @@
-#include "cursor.h"
+#include "stdint.h"
+#include "console.h"
+#include "video.h"
 
-extern void outb(unsigned short port, unsigned char data);
+static int16_t cursor_x = 2;
+static int16_t cursor_y = 2;
 
-static int cursor_x = 0;
-static int cursor_y = 0;
-
-static void scroll()
-{
-    unsigned char* vga = (unsigned char*)0xB8000;
-
-    if (cursor_y < 25)
-        return;
-
-    for (int i = 0; i < 24 * 80 * 2; i++)
-        vga[i] = vga[i + 80 * 2];
-
-    int last_line = 24 * 80 * 2;
-
-    for (int i = 0; i < 80 * 2; i += 2) {
-        vga[last_line + i] = ' ';
-        vga[last_line + i + 1] = 0x0F;
-    }
-
-    cursor_y = 24;
-}
-
-void update_cursor()
-{
-    unsigned short pos = cursor_y * 80 + cursor_x;
-
-    outb(0x3D4, 0x0F);
-    outb(0x3D5, pos & 0xFF);
-
-    outb(0x3D4, 0x0E);
-    outb(0x3D5, (pos >> 8) & 0xFF);
-}
-
-void set_cursor(int x, int y)
-{
+void set_cursor(int16_t x, int16_t y) {
     cursor_x = x;
     cursor_y = y;
-
-    scroll();
-    update_cursor();
 }
 
-void move_cursor(int dx, int dy)
-{
-    cursor_x += dx;
-    cursor_y += dy;
-
-    if (cursor_x >= 80) {
-        cursor_x = 0;
-        cursor_y++;
+void move_cursor(int16_t x, int16_t y) {
+    if (x == 0 && y == 0) {
+        return;
     }
 
-    if (cursor_x < 0)
-        cursor_x = 0;
-
-    if (cursor_y < 0)
-        cursor_y = 0;
-
-    scroll();
-    update_cursor();
+    cursor_x += x;
+    cursor_y += y;
 }
 
-void new_line()
-{
-    cursor_x = 0;
-    cursor_y++;
-
-    scroll();
-    update_cursor();
-}
-
-int get_cursor_x(void)
-{
+int16_t get_cursor_x(void) {
     return cursor_x;
 }
 
-int get_cursor_y(void)
-{
+int16_t get_cursor_y(void) {
     return cursor_y;
+}
+
+int16_t get_raw_cursor_x(void) {
+    return cursor_x * (8 * get_font_scale());
+}
+
+int16_t get_raw_cursor_y(void) {
+    return cursor_y * (8 * get_font_scale());
 }
