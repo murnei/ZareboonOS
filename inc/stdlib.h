@@ -12,5 +12,6 @@ typedef struct block_header {
 void heap_init();
 void* kmalloc(uint32_t size);
 void kfree(void* ptr);
+int getrand(int min, int max);
 
 #endif

@@ -4,9 +4,8 @@ set -e
 DISK_NAME="fat_area.img"
 CHOICE=
 SRC="zrn"
-INC="../inc"
+INC="zrn/inc"
 CFLAGS="-target i386-pc-none-elf -march=i386 -ffreestanding -fno-pie -fno-stack-protector -nostdlib -nostdinc -O2 -I$INC"
-
 
 while true; do
     clear
@@ -27,41 +26,42 @@ while true; do
     read -p "your choice: " CHOICE
 
     case $CHOICE in
-        0)
-            clear
-            break
-            ;;
-        1)
-            rm $DISK_NAME
+    0)
+        clear
+        break
+        ;;
+    1)
+        rm -f $DISK_NAME
 
-            dd if=/dev/zero of="$DISK_NAME" bs=4096 count=25600
-            mkfs.vfat -F 32 -n "DUD_DATA" "$DISK_NAME"
-            ;;
-        2)
-            read -p "enter file name: " CHOICE
-		    CLEAN_NAME=$(basename "$CHOICE")
+        dd if=/dev/zero of="$DISK_NAME" bs=1M count=64
+        mkfs.vfat -F 32 -n "DUD_DATA" "$DISK_NAME"
+        ;;
+    2)
+        read -p "enter file name: " CHOICE
+        CLEAN_NAME=$(basename "$CHOICE")
 
-			mcopy -o -D o -i "$DISK_NAME" "$CHOICE" "::$CLEAN_NAME"
-			;;
-        3)
-            read -p "enter file name without extension: " CHOICE
-            clang $CFLAGS -c "$SRC/$CHOICE.c" -o "$SRC/$CHOICE.zrn"
-            
-            ld -m elf_i386 -T zrn/zrn.ld --oformat binary "$SRC/$CHOICE.zrn" -o $SRC/$CHOICE
+        mcopy -o -D o -i "$DISK_NAME" "$CHOICE" "::$CLEAN_NAME"
+        ;;
+    3)
+        read -p "enter file name without extension: " CHOICE
+        clang $CFLAGS -c "$SRC/$CHOICE.c" -o "$SRC/$CHOICE.zrn"
 
-            mcopy -o -D o -i "$DISK_NAME" "$SRC/$CHOICE" "::$CHOICE.zrn"
-            ;;
-        4)
-            mdir -i "$DISK_NAME" ::*
-            echo ""
-            read -p "enter file name: " CHOICE
-            mdel -i "$DISK_NAME" "::$CHOICE"
-            ;;
-        *)
-            echo "Usage: no choice found"
-            sleep 1
-            ;;
-      esac
+        ld -m elf_i386 -T zrn/zrn.ld --oformat binary "$SRC/$CHOICE.zrn" -o $SRC/$CHOICE
 
-      clear
+        mcopy -o -D o -i "$DISK_NAME" "$SRC/$CHOICE" "::$CHOICE.zrn"
+        rm $SRC/$CHOICE.zrn
+        ;;
+    4)
+        mdir -i "$DISK_NAME" ::*
+        echo ""
+        read -p "enter file name: " CHOICE
+        mdel -i "$DISK_NAME" "::$CHOICE"
+        ;;
+    *)
+        echo "Usage: no choice found"
+        sleep 1
+        ;;
+    esac
+
+    clear
 done

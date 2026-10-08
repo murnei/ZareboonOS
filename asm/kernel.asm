@@ -1,18 +1,32 @@
 [bits 16]
 [org 0x8000]
 
-start:
-    mov bx, 0x1000
-    xor ax, ax
-    mov es, ax
+%ifndef SECTOR_COUNT
+%define SECTOR_COUNT 50
+%endif
 
-    mov ah, 02h
-    mov al, 23
-    mov ch, 0
-    mov cl, 3
-    mov dh, 0
+%ifndef KERNEL_LBA
+%define KERNEL_LBA 3
+%endif
+
+start:
+    xor ax, ax
+    mov ds, ax
+    mov [boot_drive], dl
+
+    mov es, ax
+    mov bp, SECTOR_COUNT
+
+.read_loop:
+    mov si, dap
+    mov dl, [boot_drive]
+    mov ah, 0x42
     int 0x13
     jc disk_fail
+    add word [dap_seg], 0x20
+    inc dword [dap_lba]
+    dec bp
+    jnz .read_loop
 
     xor ax, ax
     mov es, ax
@@ -112,7 +126,6 @@ find_mode:
     pop es
     pop bx
 
-
     cmp ax, 0x004F
     jne .next_mode
 
@@ -148,165 +161,98 @@ find_mode:
     pop es
     ret
 
-
-
 disk_fail:
-
     mov si, disk_error
-
     call print
-
     hlt
-
-
 
 vbe_fail_0:
-
     mov si, vbe_error_0
-
     call print
-
     call print_hex_ax
-
     hlt
-
-
 
 vbe_fail_1:
-
     mov si, vbe_error_1
-
     call print
-
     call print_hex_ax
-
     hlt
-
-
 
 vbe_fail_2:
-
     mov si, vbe_error_2
-
     call print
-
     call print_hex_ax
-
     hlt
 
-
-
 print_hex_ax:
-
-    mov bx, ax
-
+    mov dx, ax
+    xor bh, bh
     mov cl, 4
-
 .loop:
-
-    rol bx, 4
-
-    mov al, bl
-
+    rol dx, 4
+    mov al, dl
     and al, 0x0F
-
     cmp al, 10
-
     jl .digit
-
     add al, 'A' - 10
-
+    jmp .out
 .digit:
-
     add al, '0'
-
+.out:
     mov ah, 0x0E
-
     int 0x10
-
     dec cl
-
     jnz .loop
-
     ret
-
-
 
 print:
-
+    xor bh, bh
     mov ah, 0x0E
-
+.next:
     mov al, [si]
-
     cmp al, 0
-
     jz return
-
     int 0x10
-
     inc si
-
-    jmp print
-
-
+    jmp .next
 
 return:
-
     ret
 
-
-
 disk_error:  db "Disk failed", 0
-
 vbe_error_0: db "VBE0 fail: ", 0
-
 vbe_error_1: db "No mode found: ", 0
-
 vbe_error_2: db "SetMode fail: ", 0
 
-
-
+boot_drive:    db 0
 mode_list_off: dw 0
-
 mode_list_seg: dw 0
-
 chosen_mode:   dw 0
 
-
+align 4
+dap:
+    db 0x10, 0
+    dw 1
+dap_off: dw 0x0000
+dap_seg: dw 0x1000
+dap_lba: dq KERNEL_LBA
 
 GDT_Start:
-
     null_descriptor:
-
         dq 0x0000000000000000
-
     code_descriptor:
-
         dw 0xFFFF, 0x0000
-
         db 0x00, 10011010b, 11001111b, 0x00
-
     data_descriptor:
-
         dw 0xFFFF, 0x0000
-
         db 0x00, 10010010b, 11001111b, 0x00
-
     user_code_descriptor:
-
         dw 0xFFFF, 0x0000
-
         db 0x00, 11111010b, 11001111b, 0x00
-
     user_data_descriptor:
-
         dw 0xFFFF, 0x0000
-
         db 0x00, 11110010b, 11001111b, 0x00
-
 GDT_End:
-
-
 
 GDT_Descriptor:
     dw GDT_End - GDT_Start - 1
@@ -324,4 +270,4 @@ kernel_start:
     mov esp, 0x90000
 
     mov ebx, 0x7000
-    jmp 0x08:0x1000
+    jmp 0x08:0x10000

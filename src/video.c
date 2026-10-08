@@ -44,6 +44,15 @@ void put_pixel(int x, int y, unsigned int color) {
     }
 }
 
+static inline void fill32(volatile uint32_t* dst, uint32_t color, uint32_t count) {
+    __asm__ volatile(
+        "rep stosl"
+        : "+D"(dst), "+c"(count)
+        : "a"(color)
+        : "memory"
+    );
+}
+
 void video_memset(uint16_t x, uint16_t y, uint32_t color, uint32_t count) {
     if (x >= vbe_width || y >= vbe_height) return;
 
@@ -53,17 +62,19 @@ void video_memset(uint16_t x, uint16_t y, uint32_t color, uint32_t count) {
 
     if (vbe_bpp == 32) {
         while (remaining > 0 && cur_y < vbe_height) {
-		    uint32_t row_space = vbe_width - cur_x;
-		    uint32_t chunk = (remaining < row_space) ? remaining : row_space;
-    		uint32_t written = chunk;
+            uint32_t row_space = vbe_width - cur_x;
+            uint32_t chunk = (remaining < row_space) ? remaining : row_space;
 
-    	    volatile uint32_t* dest = (volatile uint32_t*)(vbe_buffer + (uint32_t)cur_y * vbe_pitch + (uint32_t)cur_x * 4);
-			for (uint32_t i = 0; i < chunk; i++) dest[i] = color;
+            volatile uint32_t* dest = (volatile uint32_t*)(vbe_buffer
+                + (uint32_t)cur_y * vbe_pitch
+                + (uint32_t)cur_x * 4);
 
-		    remaining -= written;
-		    cur_x = 0;
-		    cur_y++;
-		} 
+            fill32(dest, color, chunk);
+
+            remaining -= chunk;
+            cur_x = 0;
+            cur_y++;
+        }
     } else if (vbe_bpp == 24) {
         uint8_t b0 = (uint8_t)(color & 0xFF);
         uint8_t b1 = (uint8_t)((color >> 8) & 0xFF);
@@ -73,7 +84,9 @@ void video_memset(uint16_t x, uint16_t y, uint32_t color, uint32_t count) {
             uint32_t row_space = vbe_width - cur_x;
             uint32_t chunk = (remaining < row_space) ? remaining : row_space;
 
-            volatile uint8_t* dest = vbe_buffer + (uint32_t)cur_y * vbe_pitch + (uint32_t)cur_x * 3;
+            volatile uint8_t* dest = vbe_buffer
+                + (uint32_t)cur_y * vbe_pitch
+                + (uint32_t)cur_x * 3;
 
             for (uint32_t i = 0; i < chunk; i++) {
                 dest[0] = b0;
@@ -86,5 +99,45 @@ void video_memset(uint16_t x, uint16_t y, uint32_t color, uint32_t count) {
             cur_x = 0;
             cur_y++;
         }
+    }
+}
+
+void fill_rect(int x, int y, int w, int h, uint32_t color) {
+    if (x < 0 || y < 0) return;
+    if (x >= vbe_width || y >= vbe_height) return;
+    if (x + w > vbe_width)  w = vbe_width  - x;
+    if (y + h > vbe_height) h = vbe_height - y;
+    if (w <= 0 || h <= 0) return;
+
+    if (vbe_bpp == 32) {
+        for (int py = 0; py < h; py++) {
+            volatile uint32_t* dst = (volatile uint32_t*)(vbe_buffer
+                + (uint32_t)(y + py) * vbe_pitch
+                + (uint32_t)x * 4);
+            fill32(dst, color, (uint32_t)w);
+        }
+    } else {
+        for (int py = 0; py < h; py++)
+            for (int px = 0; px < w; px++)
+                put_pixel(x + px, y + py, color);
+    }
+}
+
+void blit32(const uint32_t* src, uint32_t src_w, uint32_t y0, uint32_t y1) {
+    uint32_t w = src_w < vbe_width ? src_w : vbe_width;
+    if (y1 > vbe_height) y1 = vbe_height;
+
+    if (vbe_bpp != 32) {
+        for (uint32_t y = y0; y < y1; y++)
+            for (uint32_t x = 0; x < w; x++)
+                put_pixel(x, y, src[y * src_w + x]);
+        return;
+    }
+
+    for (uint32_t y = y0; y < y1; y++) {
+        volatile uint32_t* dst = (volatile uint32_t*)(vbe_buffer + y * vbe_pitch);
+        const uint32_t* s = src + y * src_w;
+        uint32_t cnt = w;
+        __asm__ volatile("cld; rep movsl" : "+D"(dst), "+S"(s), "+c"(cnt) : : "memory");
     }
 }

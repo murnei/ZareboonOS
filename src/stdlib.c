@@ -2,10 +2,12 @@
 #include "stdbool.h"
 #include "stdlib.h"
 
-#define RAM_HEAP 0x01000000
-#define HEAP_SIZE 0x00100000
+#define RAM_HEAP  0x01000000
+#define HEAP_SIZE 0x20000000
 
 static block_header_t* free_list = NULL;
+static int random_seed = 3456289123U;
+static uint32_t next = 1;
 
 void heap_init(void) {
     block_header_t* first_block = (block_header_t*)RAM_HEAP;
@@ -81,4 +83,14 @@ void kfree(void* ptr) {
     }
 
     __asm__ volatile ("sti");
+}
+
+static void srand(void) {
+    next = random_seed;
+}
+
+int getrand(int min, int max) {
+    next = next * 1103515245 + 12345;
+    uint32_t range = (uint32_t)(max - min + 1);
+    return min + (int)(next%range);
 }

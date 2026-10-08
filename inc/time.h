@@ -7,7 +7,7 @@ struct time_now {
     uint8_t hours;
 };
 
-void get_time(struct time_now* t);
 void sleep(uint32_t ms);
+void print_format_time(void);
 
 #endif

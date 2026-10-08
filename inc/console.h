@@ -11,5 +11,6 @@ void new_line();
 void clear();
 void print_char(uint8_t ch, uint32_t color);
 uint32_t atoi(const uint8_t* str);
+void draw_black_square(uint16_t x, uint16_t y, uint32_t color);
 
 #endif

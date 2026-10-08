@@ -12,3 +12,13 @@ bool strcmp(const uint8_t* ch1, const uint8_t* ch2) {
         i++;
     }
 }
+
+uint16_t strlen(const char* c) {
+    int i = 0;
+
+    while(c[i] != '\0') {
+        i++;
+    }
+
+    return i;
+}

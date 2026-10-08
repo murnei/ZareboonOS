@@ -20,14 +20,14 @@ void new_line() {
     set_cursor(SCREEN_MARGIN_X, get_cursor_y() + 1);
 }
 
-void draw_char(int16_t start_x, int16_t start_y, uint8_t c, uint32_t color) {
-    if (global_scale <= 0) { global_scale = 2; }
+void draw_char(uint16_t start_x, uint16_t start_y, uint8_t c, uint32_t color) {
+    if (global_scale <= 0) global_scale = 2;
 
     uint8_t* vga_c = (uint8_t*)get_font(c);
     if (!vga_c) return;
 
-    int scale = global_scale;
-    int glyph_size = 8 * scale;
+    uint16_t scale = global_scale;
+    uint16_t glyph_size = 8 * scale;
     if (glyph_size < 1) glyph_size = 1;
 
     for (int py = 0; py < glyph_size; py++) {
@@ -48,6 +48,8 @@ void draw_char(int16_t start_x, int16_t start_y, uint8_t c, uint32_t color) {
 }
 
 void print_char(uint8_t ch, uint32_t color) {
+    erase_cursor();
+
     if (ch == '\n') {
         new_line();
         return;
@@ -59,11 +61,11 @@ void print_char(uint8_t ch, uint32_t color) {
         set_cursor(SCREEN_MARGIN_X, get_cursor_y());
     }
 
-    if (get_cursor_x() >= SCREEN_WIDTH) {
+    if (get_raw_cursor_x() >= SCREEN_WIDTH) {
         set_cursor(SCREEN_MARGIN_X, get_cursor_y() + 1);
     }
 
-    if (get_cursor_x() >= SCREEN_HEIGHT) {
+    if (get_raw_cursor_y() >= SCREEN_HEIGHT) {
         set_cursor(SCREEN_MARGIN_X, 0);
     }
 
@@ -86,4 +88,9 @@ uint32_t atoi(const uint8_t* str) {
     }
 
     return res;
+}
+
+void draw_black_square(uint16_t x, uint16_t y, uint32_t color) {
+    uint16_t g = 8 * get_font_scale();
+    fill_rect(x, y, g, g, color);
 }

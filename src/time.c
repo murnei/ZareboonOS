@@ -2,6 +2,7 @@
 
 #include "stdio.h"
 #include "io.h"
+#include "time.h"
 
 #define TIMER_FREQUENCY 100
 
@@ -10,12 +11,6 @@ volatile uint32_t timer_ticks = 0;
 uint8_t bcd_to_bin(uint8_t bcd) {
     return ((bcd & 0xF0) >> 4) * 10 + ((bcd & 0x0F));
 }
-
-struct time_now {
-    uint8_t seconds;
-    uint8_t minutes;
-    uint8_t hours;
-};
 
 void get_time(struct time_now* t) {
     outb(0x70, 0x00);
@@ -35,7 +30,7 @@ void timer_handler_c() {
 void sleep(const uint32_t ms) {
     if (ms == 0) return;
     uint32_t ticks_to_wait = (ms * TIMER_FREQUENCY) / 1000;
-  
+
     if (ticks_to_wait == 0) ticks_to_wait = 1;
 
     uint32_t start_ticks = timer_ticks;
@@ -46,4 +41,11 @@ void sleep(const uint32_t ms) {
             break;
         }
     }
+}
+
+void print_format_time() {
+    struct time_now now;
+    get_time(&now);
+
+    print("%02d:%02d:%02d", now.hours, now.minutes, now.seconds);
 }
